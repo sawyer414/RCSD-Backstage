@@ -1,0 +1,11 @@
+ls -l [file name]
+-r means read
+-w means write
+-x means execute
+-means no access
+
+something like
+-rwxr--r-- should output
+
+to fix
+chmod +[attribute that you need to modify] [file name]
