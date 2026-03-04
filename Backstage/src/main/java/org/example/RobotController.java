@@ -12,6 +12,10 @@ public class RobotController implements ControllerListener {
     private Robot robot;
     private PS4Controller ps4Controller;
 
+    // Current velocity states for independent motor control
+    private float currentLeftVelocity = 0.0f;
+    private float currentRightVelocity = 0.0f;
+
     // Dead zone threshold for analog sticks
     private static final float DEAD_ZONE = 0.15f;
 
@@ -92,21 +96,21 @@ public class RobotController implements ControllerListener {
         value *= SENSITIVITY;
 
         switch (axisId) {
-            case PS4Controller.AXIS_LEFT_STICK_X:
-                // Left stick horizontal - rotation
-                handleRotation(value);
-                break;
             case PS4Controller.AXIS_LEFT_STICK_Y:
-                // Left stick vertical - forward/backward (Y is inverted typically)
-                handleMovement(-value);
-                break;
-            case PS4Controller.AXIS_RIGHT_STICK_X:
-                // Right stick horizontal - strafe/turn
-                handleStrafe(value);
+                // Left joystick controls left motor (Y-axis, inverted)
+                handleLeftMotor(-value);
                 break;
             case PS4Controller.AXIS_RIGHT_STICK_Y:
-                // Right stick vertical - up/down
-                logger.debug("Right stick Y: {}", String.format("%.2f", value));
+                // Right joystick controls right motor (Y-axis, inverted)
+                handleRightMotor(-value);
+                break;
+            case PS4Controller.AXIS_LEFT_STICK_X:
+                // Left stick X - can be used for additional control
+                logger.debug("Left stick X: {}", String.format("%.2f", value));
+                break;
+            case PS4Controller.AXIS_RIGHT_STICK_X:
+                // Right stick X - can be used for additional control
+                logger.debug("Right stick X: {}", String.format("%.2f", value));
                 break;
             case PS4Controller.AXIS_L2_TRIGGER:
                 // Left trigger
@@ -126,28 +130,21 @@ public class RobotController implements ControllerListener {
     }
 
     /**
-     * Handle forward/backward movement from left stick Y
+     * Handle left motor control from left joystick Y-axis
      */
-    private void handleMovement(float forwardValue) {
-        logger.debug("Movement: {}", String.format("%.2f", forwardValue));
-        robot.move(forwardValue, forwardValue);
+    private void handleLeftMotor(float leftValue) {
+        logger.debug("Left Motor: {}", String.format("%.2f", leftValue));
+        currentLeftVelocity = leftValue;
+        robot.move(currentLeftVelocity, currentRightVelocity);
     }
 
     /**
-     * Handle rotation from left stick X
+     * Handle right motor control from right joystick Y-axis
      */
-    private void handleRotation(float rotationValue) {
-        logger.debug("Rotation: {}", String.format("%.2f", rotationValue));
-        robot.rotate(rotationValue);
-    }
-
-    /**
-     * Handle strafing from right stick X
-     */
-    private void handleStrafe(float strafeValue) {
-        logger.debug("Strafe: {}", String.format("%.2f", strafeValue));
-        // For differential drive: left and right at different speeds
-        robot.move(-strafeValue, strafeValue);
+    private void handleRightMotor(float rightValue) {
+        logger.debug("Right Motor: {}", String.format("%.2f", rightValue));
+        currentRightVelocity = rightValue;
+        robot.move(currentLeftVelocity, currentRightVelocity);
     }
 
     /**
