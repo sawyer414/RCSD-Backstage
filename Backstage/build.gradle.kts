@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("application")
 }
 
 group = "org.example"
@@ -28,7 +29,22 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
 }
 
-
 tasks.test {
     useJUnitPlatform()
+}
+
+application {
+    // Desktop/server entrypoint (PS4 controller + network server)
+    mainClass.set("org.example.Main")
+}
+
+tasks.register<org.gradle.api.tasks.JavaExec>("runPiClient") {
+    group = "application"
+    description = "Runs Raspberry Pi motor client (use -PserverHost=<ip> -PserverPort=<port>)"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("org.example.RaspberryPiMotorClient")
+
+    val host = (project.findProperty("serverHost") as String?) ?: "localhost"
+    val port = (project.findProperty("serverPort") as String?) ?: "5555"
+    args(host, port)
 }
