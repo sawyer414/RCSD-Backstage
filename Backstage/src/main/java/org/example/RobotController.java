@@ -4,13 +4,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Bridges PS4 controller input to robot movement
+ * Bridges PS4 controller input to robot movement.
+ *
+ * On Linux (Raspberry Pi) it uses LinuxPS4Controller which reads directly from
+ * /dev/input/js* — no JInput native libraries required.
+ * On Windows/macOS it falls back to the JInput-based PS4Controller.
  */
 public class RobotController implements ControllerListener {
     private static final Logger logger = LoggerFactory.getLogger(RobotController.class);
 
     private Robot robot;
+
+    // One of these will be non-null depending on the platform
     private PS4Controller ps4Controller;
+    private LinuxPS4Controller linuxController;
 
     // Current velocity states for independent motor control
     private float currentLeftVelocity = 0.0f;
@@ -24,14 +31,34 @@ public class RobotController implements ControllerListener {
 
     public RobotController(Robot robot) throws ControllerException {
         this.robot = robot;
-        this.ps4Controller = new PS4Controller(this);
+
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("linux")) {
+            // Use native Linux joystick API — works on ARM64 / Raspberry Pi
+            String device = LinuxPS4Controller.findDevice();
+            if (device == null) {
+                throw new ControllerException(
+                    "No joystick device found under /dev/input/js*. " +
+                    "Make sure your PS4 controller is connected.");
+            }
+            logger.info("Linux detected — using native joystick device: {}", device);
+            linuxController = new LinuxPS4Controller(device, this);
+        } else {
+            // Windows / macOS — use JInput
+            logger.info("Non-Linux OS detected — using JInput PS4Controller");
+            ps4Controller = new PS4Controller(this);
+        }
     }
 
     /**
      * Start the controller and robot control
      */
     public void start() {
-        ps4Controller.start();
+        if (linuxController != null) {
+            linuxController.start();
+        } else {
+            ps4Controller.start();
+        }
         logger.info("Robot controller started");
     }
 
@@ -39,7 +66,11 @@ public class RobotController implements ControllerListener {
      * Stop the controller and robot control
      */
     public void stop() {
-        ps4Controller.stop();
+        if (linuxController != null) {
+            linuxController.stop();
+        } else if (ps4Controller != null) {
+            ps4Controller.stop();
+        }
         robot.stop();
         logger.info("Robot controller stopped");
     }
