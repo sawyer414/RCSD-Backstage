@@ -10,17 +10,9 @@ repositories {
     mavenCentral()
 }
 
-// Configuration to hold JInput native libraries
-val jinputNatives: Configuration by configurations.creating
-
 dependencies {
     // Input handling for controllers - JInput
     implementation("net.java.jinput:jinput:2.0.10")
-
-    // JInput native libraries for each platform
-    jinputNatives("net.java.jinput:jinput:2.0.10:natives-windows")
-    jinputNatives("net.java.jinput:jinput:2.0.10:natives-linux")
-    jinputNatives("net.java.jinput:jinput:2.0.10:natives-osx")
 
     // Logging
     implementation("org.slf4j:slf4j-api:2.0.9")
@@ -37,9 +29,17 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
 }
 
-// Task to extract JInput natives into build/natives
+// Extract JInput native DLLs/SOs from the jinput jar (they are bundled inside it)
 val extractJinputNatives by tasks.registering(Copy::class) {
-    from(jinputNatives.map { zipTree(it) })
+    val jinputJar = configurations.runtimeClasspath.get()
+        .resolvedConfiguration.resolvedArtifacts
+        .find { it.name == "jinput" }?.file
+    if (jinputJar != null) {
+        from(zipTree(jinputJar)) {
+            include("**/*.dll", "**/*.so", "**/*.jnilib", "**/*.dylib")
+            eachFile { path = name } // flatten into root of output dir
+        }
+    }
     into(layout.buildDirectory.dir("natives"))
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
@@ -64,8 +64,6 @@ tasks.register<org.gradle.api.tasks.JavaExec>("runPiClient") {
     description = "Runs Raspberry Pi motor client (use -PserverHost=<ip> -PserverPort=<port>)"
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("org.example.RaspberryPiMotorClient")
-    dependsOn(extractJinputNatives)
-    jvmArgs("-Djava.library.path=${layout.buildDirectory.dir("natives").get().asFile.absolutePath}")
 
     val host = (project.findProperty("serverHost") as String?) ?: "localhost"
     val port = (project.findProperty("serverPort") as String?) ?: "5555"

@@ -124,8 +124,6 @@ public class LinuxPS4Controller {
                     }
                 }
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
         } catch (IOException e) {
             if (running) {
                 logger.error("Error reading from {}: {}", devicePath, e.getMessage());
